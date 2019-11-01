@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ajax and Promises</title>
+
+</head>
+<body>
+<select id="repoList"></select>
+
+<script>
+
+  async function getData() {
+    let url = 'https://api.github.com/search/repositories?q=user:agmakarevich&sort=created_at&order=desc';
+    const res = await fetch(url);
+    const data = await res.json();
+    const repoList = document.getElementById('repoList');
+
+    data.items.forEach(el => {
+      let opt = document.createElement('option');
+      opt.innerText = `${el.name} - ${new Date(el.created_at).toLocaleDateString()}`;
+      opt.value = el.name;
+      repoList.appendChild(opt);
+    });
+  }
+  getData();
+
+  function getByXML() {
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', 'https://api.github.com/users/agmakarevich/repos', false);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send();
+    let repos = JSON.parse(xhr.responseText);
+    console.log(repos);
+  }
+  getByXML();
+</script>
+</body>
+</html>
