@@ -6,34 +6,116 @@
 
 </head>
 <body>
+<button style="float: right;margin: 15px;" id="repoRefresh">Start update</button>
+<h3>Repo list:</h3>
 <select id="repoList"></select>
-
+<h3>Best by watchers:</h3>
+<p><span id="repoWatchers"></span></p>
+<h3>Repo Info</h3>
+<div style="max-height: 500px;overflow: auto;border: solid 1px #999;padding: 15px;" id="repoInfo"></div>
 <script>
 
   async function getData() {
-    let url = 'https://api.github.com/search/repositories?q=user:agmakarevich&sort=created_at&order=desc';
-    const res = await fetch(url);
-    const data = await res.json();
-    const repoList = document.getElementById('repoList');
-
-    data.items.forEach(el => {
-      let opt = document.createElement('option');
-      opt.innerText = `${el.name} - ${new Date(el.created_at).toLocaleDateString()}`;
-      opt.value = el.name;
-      repoList.appendChild(opt);
-    });
+    return new Promise(async (resolve, reject) => {
+      const url = 'https://api.github.com/search/repositories?q=user:agmakarevich';
+      try {
+        const res = await fetch(url);
+        const data = (await res.json()).items.map(el => {
+          return {
+            name: el.name,
+            date: new Date(el.created_at)
+          }
+        }).sort((a, b) => a.date <= b.date ? -1 : 1);
+        const repoList = document.getElementById('repoList');
+        repoList.innerHTML = '';
+        data.forEach(el => {
+          const opt = document.createElement('option');
+          opt.innerText = `${el.name} - ${el.date.toLocaleDateString()}`;
+          opt.value = el.name;
+          repoList.appendChild(opt);
+        });
+        resolve();
+      } catch (e) {
+        console.log(e);
+        reject();
+      }
+    })
   }
+
   getData();
 
-  function getByXML() {
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', 'https://api.github.com/users/agmakarevich/repos', false);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send();
-    let repos = JSON.parse(xhr.responseText);
-    console.log(repos);
+  async function getByXML() {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://api.github.com/users/agmakarevich/repos', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send();
+        const repos = JSON.parse(xhr.responseText).sort((a, b) => a.watchers_count <= b.watchers_count ? -1 : 1);
+        const repoWatchers = document.getElementById('repoWatchers');
+        if (repos.length && repoWatchers) {
+          repoWatchers.innerHTML = repos[0].name;
+        }
+        resolve();
+      } catch (e) {
+        console.log(e);
+        reject();
+      }
+    })
   }
+
   getByXML();
+
+  function showInfo(repo) {
+    let html = '';
+    for (let key in repo) {
+      if (typeof (repo[key]) === 'object' && repo[key]) {
+        html += `<strong style="text-transform: capitalize">${key.replace(/_/g, ' ')}</strong>:`;
+        html += `<div style="padding-left: 15px">${showInfo(repo[key])}</div>`;
+      } else {
+        html += `<strong style="text-transform: capitalize">${key.replace(/_/g, ' ')}: </strong>${repo[key]}<br/>`;
+      }
+    }
+    return html
+  }
+
+  async function getRepoInfo() {
+    const url = 'https://api.github.com/search/repositories?q=user:agmakarevich';
+    const res = await fetch(url);
+    const data = await res.json();
+    const repoInfo = document.getElementById('repoInfo');
+
+    if (repoInfo && data.items.length) {
+      repoInfo.innerHTML = showInfo(data.items[0]);
+    }
+  }
+
+  getRepoInfo();
+
+  const refresh = document.getElementById('repoRefresh');
+  let isActive = false;
+  let timer;
+
+  refresh.addEventListener('click', repoRefresh);
+
+  function iniTimer() {
+    timer = setTimeout(async () => {
+      await Promise.all([getData(), getByXML()]);
+      iniTimer();
+    }, 1000);
+  }
+
+  async function repoRefresh() {
+    if (isActive) {
+      clearInterval(timer);
+    } else {
+      iniTimer();
+    }
+    isActive = !isActive;
+    this.innerText = isActive ? 'Stop update' : 'Start update';
+  }
+
+
 </script>
 </body>
 </html>
